@@ -28,6 +28,12 @@ module.exports = config => {
 
   return cors({
     async origin(ctx) {
+      const requestOrigin = ctx.get('Origin');
+
+      if (!requestOrigin) {
+        return '*';
+      }
+
       let originList;
 
       if (typeof origin === 'function') {
@@ -36,17 +42,24 @@ module.exports = config => {
         originList = origin;
       }
 
-      const whitelist = Array.isArray(originList) ? originList : originList.split(/\s*,\s*/);
-
-      const requestOrigin = ctx.accept.headers.origin;
-      if (whitelist.includes('*')) {
-        return '*';
+      // Handle arrays of origins
+      if (Array.isArray(originList)) {
+        return originList.includes(requestOrigin) ? requestOrigin : '';
       }
 
-      if (!whitelist.includes(requestOrigin)) {
-        return ctx.throw(`${requestOrigin} is not a valid origin`);
+      // Handle comma-separated string of origins
+      const parsedOrigin = originList.split(',').map(origin => origin.trim());
+      if (parsedOrigin.length > 1) {
+        return parsedOrigin.includes(requestOrigin) ? requestOrigin : '';
       }
-      return requestOrigin;
+
+      // Handle string of one origin with exact match (protocol, subdomain, domain, and port)
+      if (typeof originList === 'string') {
+        return originList === requestOrigin ? requestOrigin : '';
+      }
+
+      // block the request
+      return '';
     },
     exposeHeaders: expose,
     maxAge,
